@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SiloControl: registro de controles de silobolsas con decisión por prioridad (caso académico).">
+<meta name="color-scheme" content="dark light">
+<title>SiloControl – Monitoreo de Silobolsas</title>
+<style>
+:root{--bg:#0f1a14;--card:#17261d;--line:#27402f;--txt:#e9f2ec;--mut:#9db3a5;--hdr:#1f5a2e;--ok:#3fa564;--warn:#e8a93a;--bad:#e0524a;--accent:#7cc58f}
+@media (prefers-color-scheme:light){:root{--bg:#f3f7f4;--card:#fff;--line:#d3e0d7;--txt:#14241a;--mut:#51675a;--hdr:#1f5a2e;--ok:#2e8a50;--warn:#b97a00;--bad:#c0352d;--accent:#1f5a2e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{background:var(--hdr);color:#fff;padding:14px 16px}
+header h1{margin:0;font-size:20px}
+header p{margin:2px 0 0;font-size:13px;opacity:.85}
+nav{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;background:var(--bg);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--txt);padding:8px 14px;border-radius:999px;font:inherit;font-size:14px;cursor:pointer}
+nav button.on{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+main{max-width:920px;margin:0 auto;padding:16px 14px 60px}
+h2{margin:6px 0 12px;font-size:20px}
+h3{margin:18px 0 8px;font-size:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.kpi{border-radius:12px;padding:10px;text-align:center;border:1px solid var(--line);background:var(--card)}
+.kpi b{display:block;font-size:28px;line-height:1.1}
+.kpi span{font-size:12px;color:var(--mut)}
+.kpi.l2 b{color:var(--bad)}.kpi.l1 b{color:var(--warn)}.kpi.l0 b{color:var(--ok)}
+.pri{display:flex;gap:12px;align-items:flex-start;border-left:6px solid var(--line)}
+.pri.l2{border-left-color:var(--bad)}.pri.l1{border-left-color:var(--warn)}.pri.l0{border-left-color:var(--ok)}
+.num{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-weight:700}
+.body{flex:1;min-width:0}
+.top{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
+.dec{font-weight:700;font-size:17px}
+.l2 .dec{color:var(--bad)}.l1 .dec{color:var(--warn)}.l0 .dec{color:var(--ok)}
+.sub{color:var(--mut);font-size:13px}
+.why{margin:4px 0 0}
+.ctx{margin:4px 0 0;font-size:13px;color:var(--accent)}
+.chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.chip.l0{background:var(--ok)}.chip.l1{background:var(--warn)}.chip.l2{background:var(--bad)}.chip.lx{background:var(--mut)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+button.b,a.b{border:1px solid var(--line);background:transparent;color:var(--txt);padding:7px 12px;border-radius:8px;font:inherit;font-size:14px;cursor:pointer}
+button.p{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+button.d{border-color:var(--bad);color:var(--bad)}
+details{margin-top:6px}
+summary{cursor:pointer;color:var(--accent);font-size:14px}
+ol.steps{margin:6px 0 0;padding-left:20px;font-size:14px}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:flex;flex-direction:column;font-size:13px;color:var(--mut);gap:3px}
+input,select,textarea{font:inherit;font-size:15px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--txt);width:100%}
+.full{grid-column:1/-1}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:12px}
+.scroll{overflow-x:auto}
+.note{font-size:12px;color:var(--mut);margin-top:14px}
+.msg{padding:10px 12px;border-radius:10px;margin-bottom:10px;border:1px solid var(--line);background:var(--card)}
+.msg.l2{border-color:var(--bad)}.msg.l1{border-color:var(--warn)}.msg.l0{border-color:var(--ok)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+svg text{fill:var(--mut);font-size:11px}
+.empty{color:var(--mut);padding:10px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌾 SiloControl</h1>
+  <p>Monitoreo de silobolsas · Caso 21 · decisión por prioridad</p>
+</header>
+<nav id="nav"></nav>
+<main id="app"></main>
+
+<script>
+"use strict";
+/* ================= REGLAS (valores académicos orientativos) ================= */
+const RULES = {
+  dtYellow: 2.0,      // °C de aumento vs. primera medición del mismo punto
+  dtRed: 4.0,
+  sectorDiff: 3.0,    // °C de diferencia Centro − Extremo
+  humLimit: { "Maíz": 14.5, "Soja": 13.0, "Trigo": 14.0, "Girasol": 11.0 } // % ilustrativo
+};
+const LEVELS = [
+  { n: 0, name: "Normal",   decision: "Seguimiento normal" },
+  { n: 1, name: "Atención", decision: "Repetir medición en 48 h" },
+  { n: 2, name: "Crítico",  decision: "Inspeccionar hoy" }
+];
+const STEPS = {
+  2: ["Repetir la medición en el mismo punto", "Revisar cubierta y posibles filtraciones", "Evaluar muestreo del grano (decide el responsable técnico)"],
+  1: ["Repetir la medición en el mismo punto", "Comparar con la temperatura ambiente", "Revisar el estado de la cubierta"],
+  0: []
+};
+const TABS = [["inicio","Inicio"],["bolsas","Silobolsas"],["control","Nuevo control"],["historial","Historial"],["graficos","Gráficos"],["alertas","Alertas"],["inspecciones","Inspecciones"]];
+const COLORS = ["#e0524a","#e8a93a","#4aa3df","#7cc58f","#b58be0","#e08bb5"];
+
+/* ================= DATOS DEMO (reemplazar por los datos reales) ================= */
+function seed() {
+  const bags = [
+    { id:"MA-07", cultivo:"Maíz",    lote:"L-3", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-28", hum0:14.0, temp0:18.0, tn:180, cubierta:"Buena", resp:"A. Pérez", obs:"" },
+    { id:"MA-12", cultivo:"Maíz",    lote:"L-5", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-28", hum0:14.5, temp0:18.0, tn:200, cubierta:"Buena", resp:"A. Pérez", obs:"" },
+    { id:"SO-03", cultivo:"Soja",    lote:"L-1", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-30", hum0:13.0, temp0:19.0, tn:160, cubierta:"Buena", resp:"A. Pérez", obs:"" },
+    { id:"SO-09", cultivo:"Soja",    lote:"L-2", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-30", hum0:12.5, temp0:18.8, tn:170, cubierta:"Buena", resp:"A. Pérez", obs:"" },
+    { id:"TR-05", cultivo:"Trigo",   lote:"L-4", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-29", hum0:13.5, temp0:16.0, tn:150, cubierta:"Regular", resp:"A. Pérez", obs:"" },
+    { id:"GI-02", cultivo:"Girasol", lote:"L-6", estab:"Estancia demo", campana:"2025/26", embolsado:"2026-03-31", hum0:10.5, temp0:17.4, tn:120, cubierta:"Buena", resp:"A. Pérez", obs:"" }
+  ];
+  const D = ["2026-04-03T09:00","2026-04-10T09:00","2026-04-17T09:00"], AMB = [24, 22.5, 21];
+  // [bolsa, punto, [T,H] por fecha]
+  const raw = [
+    ["TR-05","Centro", [[16.0,13.5],[17.8,13.9],[20.5,14.6]]], ["TR-05","Extremo",[[16.1,13.5],[16.4,13.6],[17.2,13.8]]],
+    ["MA-07","Centro", [[18.0,14.0],[18.7,14.0],[21.5,14.1]]], ["MA-07","Extremo",[[17.9,14.0],[18.4,14.0],[18.9,14.0]]],
+    ["SO-03","Centro", [[19.0,13.0],[20.2,13.4],[22.4,13.9]]], ["SO-03","Extremo",[[19.2,13.0],[19.7,12.9],[20.0,13.1]]],
+    ["MA-12","Centro", [[18.0,14.5],[18.1,14.5],[18.2,14.4]]], ["MA-12","Extremo",[[17.9,14.5],[18.0,14.4],[18.0,14.4]]],
+    ["SO-09","Centro", [[18.8,12.5],[18.9,12.5],[19.0,12.6]]], ["SO-09","Extremo",[[18.7,12.5],[18.7,12.5],[18.8,12.6]]],
+    ["GI-02","Centro", [[17.4,10.5],[17.3,10.5],[17.3,10.5]]], ["GI-02","Extremo",[[17.4,10.5],[17.4,10.5],[17.4,10.5]]]
+  ];
+  const readings = []; let k = 1;
+  raw.forEach(([bag, punto, vals]) => vals.forEach((v, i) => readings.push({
+    id: "r" + (k++), bag, punto, dt: D[i], temp: v[0], hum: v[1], amb: AMB[i], cubierta: "Buena", perf: false, resp: "A. Pérez", obs: ""
+  })));
+  return { bags, readings, inspections: [] };
+}
+
+/* ================= ESTADO ================= */
+const KEY = "silocontrol_v2";
+let db;
+try { db = JSON.parse(localStorage.getItem(KEY)); } catch (e) { db = null; }
+if (!db || !db.bags) db = seed();
+const ui = { tab: "inicio", editId: null, delId: null, histBag: "", grafBag: "", result: null, prefill: null, resetAsk: false };
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+
+/* ================= UTILIDADES ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const n1 = x => x == null || isNaN(x) ? "–" : Number(x).toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const sg = x => (x >= 0 ? "+" : "−") + n1(Math.abs(x));
+const dateOf = dt => dt.slice(0, 10);
+const fdate = d => { const p = d.slice(0, 10).split("-"); return p[2] + "/" + p[1] + "/" + p[0]; };
+const num = v => parseFloat(String(v).replace(",", "."));
+const bagById = id => db.bags.find(b => b.id === id);
+const limit = b => RULES.humLimit[b.cultivo];
+const chip = (lvl, text) => `<span class="chip l${lvl}">${esc(text || LEVELS[lvl].name)}</span>`;
+
+/* ================= MOTOR DE DECISIÓN ================= */
+function reference(bagId, punto) {
+  return db.readings.filter(r => r.bag === bagId && r.punto === punto).sort((a, b) => a.dt.localeCompare(b.dt))[0];
+}
+function evalReading(r) {
+  const b = bagById(r.bag); const ref = reference(r.bag, r.punto);
+  const reasons = []; let lvl = 0;
+  const dT = ref && ref.id !== r.id ? r.temp - ref.temp : 0;
+  if (dT >= RULES.dtRed) { lvl = 2; reasons.push(`${r.punto} ${sg(dT)} °C (crítico desde ${n1(RULES.dtRed)})`); }
+  else if (dT >= RULES.dtYellow) { lvl = Math.max(lvl, 1); reasons.push(`${r.punto} ${sg(dT)} °C (atención desde ${n1(RULES.dtYellow)})`); }
+  const lim = b ? limit(b) : null;
+  const hx = lim != null ? r.hum - lim : 0;
+  if (hx > 0.05) { lvl = Math.max(lvl, 1); reasons.push(`Humedad ${n1(r.hum)} % > ${n1(lim)} %`); }
+  if (r.perf) { lvl = Math.max(lvl, 1); reasons.push("Perforaciones o filtraciones"); }
+  return { lvl, reasons, dT, hx: Math.max(0, hx) };
+}
+function evalBag(b) {
+  const rs = db.readings.filter(r => r.bag === b.id);
+  if (!rs.length) return { bag: b, none: true, lvl: 0, score: -1, reasons: ["Sin controles cargados"], steps: [], decision: "Cargar primer control" };
+  const last = rs.map(r => dateOf(r.dt)).sort().pop();
+  const cur = rs.filter(r => dateOf(r.dt) === last);
+  const ev = cur.map(r => ({ r, e: evalReading(r) }));
+  const lvl = Math.max(...ev.map(x => x.e.lvl));
+  let reasons = [];
+  ev.filter(x => x.e.lvl === lvl).sort((p, q) => q.e.hx - p.e.hx).forEach(x => x.e.reasons.forEach(t => {
+    if (t.startsWith("Humedad") && reasons.some(y => y.startsWith("Humedad"))) return; // una sola razón de humedad: la peor
+    if (!reasons.includes(t)) reasons.push(t);
+  }));
+  if (lvl === 0) reasons = ["Sin reglas activadas"];
+  // diferencia Centro − Extremo (sector caliente)
+  const c = cur.find(r => r.punto === "Centro"), x = cur.find(r => r.punto === "Extremo");
+  const diff = c && x ? c.temp - x.temp : null;
+  let finalLvl = lvl;
+  if (diff != null && diff >= RULES.sectorDiff) {
+    finalLvl = Math.max(finalLvl, 1);
+    if (!reasons.some(t => t.startsWith("Centro"))) reasons.push(`Centro ${sg(diff)} °C sobre Extremo`);
+  }
+  // contexto: ¿el calor viene del clima o del grano?
+  const maxdT = Math.max(...ev.map(x => x.e.dT));
+  let ctx = "";
+  const refAmb = (reference(b.id, "Centro") || reference(b.id, "Extremo") || {}).amb;
+  const curAmb = cur.find(r => r.amb != null && !isNaN(r.amb));
+  if (finalLvl >= 1 && maxdT >= RULES.dtYellow && refAmb != null && curAmb) {
+    const dA = curAmb.amb - refAmb;
+    ctx = dA <= 0.5 ? `Ambiente ${sg(dA)} °C en el mismo período: el aumento no se explica por el clima.`
+                    : `Ambiente ${sg(dA)} °C en el mismo período: parte del aumento puede ser clima.`;
+  }
+  // tendencia: aumento sostenido en el centro
+  const cs = rs.filter(r => r.punto === "Centro").sort((a, z) => a.dt.localeCompare(z.dt)).slice(-3).map(r => r.temp);
+  if (cs.length === 3 && cs[0] < cs[1] && cs[1] < cs[2] && finalLvl >= 1) ctx += (ctx ? " " : "") + "Sube en las últimas 3 lecturas.";
+  const score = finalLvl * 100 + Math.max(0, maxdT) * 8 + Math.max(...ev.map(x => x.e.hx)) * 10 + (diff || 0);
+  const insp = db.inspections.filter(i => i.bag === b.id && i.fecha >= last);
+  const pending = finalLvl >= 1 && !insp.length;
+  return { bag: b, lvl: finalLvl, reasons, steps: STEPS[finalLvl], decision: LEVELS[finalLvl].decision, ctx, score, last, cur, ev, diff, pending, insp };
+}
+const allEvals = () => db.bags.map(evalBag).sort((a, b) => b.score - a.score);
+
+/* ================= VISTAS ================= */
+function priCard(e, i) {
+  const b = e.bag;
+  return `<div class="card pri l${e.lvl}">
+    <div class="num">${i}</div>
+    <div class="body">
+      <div class="top"><span class="dec">${esc(e.decision)}</span><span class="sub"><b>${esc(b.id)}</b> · ${esc(b.cultivo)} · lote ${esc(b.lote)}${e.last ? " · " + fdate(e.last) : ""}</span></div>
+      <p class="why">${esc(e.reasons.join(" · "))}</p>
+      ${e.ctx ? `<p class="ctx">${esc(e.ctx)}</p>` : ""}
+      ${e.lvl >= 1 ? `<div class="row"><button class="b p" data-act="insp" data-bag="${esc(b.id)}">${e.pending ? "Registrar inspección" : "Nueva inspección"}</button>${e.pending ? "" : `<span class="sub" style="align-self:center">Inspección registrada</span>`}</div>` : ""}
+    </div></div>`;
+}
+function vInicio() {
+  const ev = allEvals();
+  const c = [0, 0, 0]; ev.forEach(e => c[e.lvl]++);
+  const act = ev.filter(e => e.lvl >= 1), ok = ev.filter(e => e.lvl === 0);
+  return `<h2>Qué hacer hoy</h2>
+  <div class="kpis">
+    <div class="kpi l2"><b>${c[2]}</b><span>Inspeccionar hoy</span></div>
+    <div class="kpi l1"><b>${c[1]}</b><span>Repetir en 48 h</span></div>
+    <div class="kpi l0"><b>${c[0]}</b><span>Seguimiento normal</span></div>
+  </div>
+  <h3>Orden de intervención</h3>
+  ${act.length ? act.map((e, i) => priCard(e, i + 1)).join("") : `<div class="card empty">Ninguna silobolsa requiere acción. Seguí con la rutina de controles.</div>`}
+  ${ok.length ? `<div class="card"><span class="sub">Normales (${ok.length}):</span> ${ok.map(e => `<b>${esc(e.bag.id)}</b>`).join(", ")}</div>` : ""}
+  <p class="note">${db.bags.length} silobolsas · ${db.readings.length} lecturas. La prioridad se calcula con el último control de cada bolsa. Valores académicos orientativos: requieren validación según cultivo, tiempo de almacenamiento e instrumentos. Una alerta no indica por sí sola deterioro ni que deba venderse el grano.</p>`;
+}
+
+function vAlertas() {
+  const ev = allEvals().filter(e => !e.none);
+  const act = ev.filter(e => e.lvl >= 1);
+  const card = e => `<div class="card pri l${e.lvl}"><div class="body">
+      <div class="top"><span class="dec">${esc(e.decision)}</span><span class="sub"><b>${esc(e.bag.id)}</b> · ${esc(e.bag.cultivo)} · ${fdate(e.last)}</span></div>
+      <p class="why">${esc(e.reasons.join(" · "))}</p>
+      ${e.ctx ? `<p class="ctx">${esc(e.ctx)}</p>` : ""}
+      <div class="row"><button class="b p" data-act="insp" data-bag="${esc(e.bag.id)}">${e.pending ? "Registrar inspección" : "Nueva inspección"}</button></div>
+      <details><summary>Qué revisar</summary><ol class="steps">${e.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol></details>
+    </div></div>`;
+  return `<h2>Alertas activas</h2>
+  ${act.length ? act.map(card).join("") : `<div class="card empty">Sin alertas activas con el último control de cada bolsa.</div>`}
+  <p class="note">Una alerta por silobolsa, con el último control. El detalle por lectura está en Historial. No se afirma presencia de hongos, insectos ni micotoxinas sin evidencia: ante sospecha, pedir análisis.</p>`;
+}
+
+function bagForm() {
+  const b = ui.editId ? bagById(ui.editId) : {};
+  const o = (v, list) => list.map(x => `<option ${v === x ? "selected" : ""}>${x}</option>`).join("");
+  return `<form data-form="bag" class="card">
+    <label>Código único *<input name="id" required value="${esc(b.id)}" ${ui.editId ? "readonly" : ""}></label>
+    <label>Establecimiento<input name="estab" value="${esc(b.estab)}"></label>
+    <label>Lote *<input name="lote" required value="${esc(b.lote)}"></label>
+    <label>Cultivo *<select name="cultivo">${o(b.cultivo, Object.keys(RULES.humLimit))}</select></label>
+    <label>Campaña<input name="campana" value="${esc(b.campana)}" placeholder="2025/26"></label>
+    <label>Fecha de embolsado<input type="date" name="embolsado" value="${esc(b.embolsado)}"></label>
+    <label>Humedad inicial (%) *<input name="hum0" required inputmode="decimal" value="${b.hum0 != null ? n1(b.hum0) : ""}"></label>
+    <label>Temperatura inicial (°C)<input name="temp0" inputmode="decimal" value="${b.temp0 != null ? n1(b.temp0) : ""}"></label>
+    <label>Toneladas<input name="tn" inputmode="decimal" value="${esc(b.tn)}"></label>
+    <label>Cubierta inicial<select name="cubierta">${o(b.cubierta, ["Buena", "Regular", "Con daños"])}</select></label>
+    <label>Responsable<input name="resp" value="${esc(b.resp)}"></label>
+    <label class="full">Observaciones<input name="obs" value="${esc(b.obs)}"></label>
+    <div class="full row"><button class="b p" type="submit">${ui.editId ? "Guardar cambios" : "Agregar silobolsa"}</button>${ui.editId ? `<button class="b" type="button" data-act="cancel-edit">Cancelar</button>` : ""}</div>
+  </form>`;
+}
+function vBolsas() {
+  const ev = db.bags.map(evalBag);
+  return `<h2>Silobolsas</h2>${bagForm()}
+  ${ev.map(e => { const b = e.bag, n = db.readings.filter(r => r.bag === b.id).length; return `<div class="card">
+    <div class="top"><b>${esc(b.id)}</b>${e.none ? chip("x", "Sin controles") : chip(e.lvl)}<span class="sub">${esc(b.cultivo)} · lote ${esc(b.lote)} · ${esc(b.estab || "–")} · ${esc(b.campana || "–")}</span></div>
+    <p class="sub" style="margin:4px 0 0">Humedad inicial ${n1(b.hum0)} % · ${b.tn ? esc(b.tn) + " t · " : ""}cubierta ${esc((b.cubierta || "–").toLowerCase())} · ${n} lecturas${b.resp ? " · " + esc(b.resp) : ""}</p>
+    <div class="row">
+      <button class="b" data-act="edit" data-id="${esc(b.id)}">Editar</button>
+      <button class="b" data-act="hist" data-bag="${esc(b.id)}">Historial</button>
+      ${ui.delId === b.id ? `<button class="b d" data-act="del-yes" data-id="${esc(b.id)}">Confirmar: borra la bolsa y sus lecturas</button><button class="b" data-act="del-no">Cancelar</button>` : `<button class="b d" data-act="del" data-id="${esc(b.id)}">Eliminar</button>`}
+    </div></div>`; }).join("")}
+  <div class="row">${ui.resetAsk ? `<button class="b d" data-act="reset-yes">Confirmar: volver a datos demo</button><button class="b" data-act="reset-no">Cancelar</button>` : `<button class="b" data-act="reset">Restablecer datos demo</button>`}</div>`;
+}
+
+function localNow() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+function vControl() {
+  const pre = ui.prefill || db.bags[0]?.id;
+  const r = ui.result;
+  let res = "";
+  if (r) { const e = r.e; res = `<div class="msg l${e.lvl}"><b>Control guardado → ${esc(e.decision)}</b><br>${esc(e.reasons.join(" · "))}${e.ctx ? `<br><span class="ctx">${esc(e.ctx)}</span>` : ""}${e.lvl >= 1 ? `<div class="row"><button class="b p" data-act="insp" data-bag="${esc(r.bag)}">Registrar inspección</button></div>` : ""}</div>`; }
+  return `<h2>Nuevo control</h2>${res}
+  <form data-form="control" class="card">
+    <label>Silobolsa<select name="bag">${db.bags.map(b => `<option ${b.id === pre ? "selected" : ""}>${esc(b.id)}</option>`).join("")}</select></label>
+    <label>Fecha y hora<input type="datetime-local" name="dt" required value="${localNow()}"></label>
+    <label>Punto<select name="punto"><option>Centro</option><option>Extremo</option></select></label>
+    <label>Temperatura del grano (°C) *<input name="temp" required inputmode="decimal"></label>
+    <label>Humedad del grano (%) *<input name="hum" required inputmode="decimal"></label>
+    <label>Temp. ambiente (°C)<input name="amb" inputmode="decimal"></label>
+    <label>Cubierta<select name="cubierta"><option>Buena</option><option>Regular</option><option>Con daños</option></select></label>
+    <label>¿Perforaciones o filtraciones?<select name="perf"><option value="0">No</option><option value="1">Sí</option></select></label>
+    <label>Responsable<input name="resp"></label>
+    <label class="full">Observaciones<input name="obs"></label>
+    <div class="full row"><button class="b p" type="submit">Guardar y ver decisión</button></div>
+  </form>
+  <p class="note">Cargá Centro y Extremo por separado. La temperatura ambiente permite saber si el aumento viene del clima o del grano.</p>`;
+}
+
+function vHistorial() {
+  const rs = db.readings.filter(r => !ui.histBag || r.bag === ui.histBag).sort((a, b) => b.dt.localeCompare(a.dt) || a.bag.localeCompare(b.bag));
+  return `<h2>Historial de lecturas</h2>
+  <div class="card"><label>Silobolsa<select data-sel="histBag"><option value="">Todas</option>${db.bags.map(b => `<option ${ui.histBag === b.id ? "selected" : ""}>${esc(b.id)}</option>`).join("")}</select></label></div>
+  <div class="card scroll"><table><thead><tr><th>Fecha</th><th>Bolsa</th><th>Punto</th><th>T °C</th><th>ΔT</th><th>H %</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${rs.map(r => { const e = evalReading(r); return `<tr><td>${fdate(r.dt)}</td><td>${esc(r.bag)}</td><td>${esc(r.punto)}</td><td>${n1(r.temp)}</td><td>${e.dT ? sg(e.dT) : "–"}</td><td>${n1(r.hum)}</td><td>${chip(e.lvl)}</td><td><button class="b" data-act="del-r" data-id="${esc(r.id)}">✕</button></td></tr>`; }).join("") || `<tr><td colspan="8" class="empty">Sin lecturas.</td></tr>`}
+  </tbody></table></div>
+  <p class="note">ΔT: diferencia contra la primera medición del mismo punto. “✕” elimina la lectura.</p>`;
+}
+
+function lineChart(series, yMin, yMax, hlines, xLabels) {
+  const W = 640, H = 240, L = 40, R = 46, T = 14, B = 28, pw = W - L - R, ph = H - T - B;
+  const X = i => L + (xLabels.length === 1 ? pw / 2 : pw * i / (xLabels.length - 1));
+  const Y = v => T + ph * (1 - (v - yMin) / (yMax - yMin));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">`;
+  const step = (yMax - yMin) / 4;
+  for (let k = 0; k <= 4; k++) { const v = yMin + step * k; s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${n1(v)}</text>`; }
+  hlines.forEach(h => { s += `<line x1="${L}" x2="${W - R}" y1="${Y(h.v)}" y2="${Y(h.v)}" stroke="${h.c}" stroke-dasharray="5 4"/><text x="${W - R + 3}" y="${Y(h.v) + 4}" style="fill:${h.c}">${h.t}</text>`; });
+  xLabels.forEach((x, i) => { s += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle">${x}</text>`; });
+  series.forEach(se => {
+    const pts = se.pts.map(p => `${X(p.i)},${Y(p.v)}`).join(" ");
+    s += `<polyline fill="none" stroke="${se.c}" stroke-width="2.5" points="${pts}"/>` + se.pts.map(p => `<circle cx="${X(p.i)}" cy="${Y(p.v)}" r="3.5" fill="${se.c}"/>`).join("");
+  });
+  return s + "</svg>";
+}
+function vGraficos() {
+  const bags = db.bags.filter(b => !ui.grafBag || b.id === ui.grafBag);
+  const dates = [...new Set(db.readings.map(r => dateOf(r.dt)))].sort();
+  const xl = dates.map(d => fdate(d).slice(0, 5));
+  const sel = `<div class="card"><label>Silobolsa<select data-sel="grafBag"><option value="">Todas</option>${db.bags.map(b => `<option ${ui.grafBag === b.id ? "selected" : ""}>${esc(b.id)}</option>`).join("")}</select></label></div>`;
+  if (!dates.length) return `<h2>Gráficos</h2>${sel}<div class="card empty">Sin lecturas para graficar.</div>`;
+  const dtS = [], hmS = [];
+  bags.forEach(b => {
+    const ci = db.bags.indexOf(b), col = COLORS[ci % COLORS.length];
+    const cr = db.readings.filter(r => r.bag === b.id && r.punto === "Centro").sort((a, z) => a.dt.localeCompare(z.dt));
+    if (cr.length) {
+      dtS.push({ c: col, pts: cr.map(r => ({ i: dates.indexOf(dateOf(r.dt)), v: r.temp - cr[0].temp })) });
+      hmS.push({ c: col, pts: cr.map(r => ({ i: dates.indexOf(dateOf(r.dt)), v: r.hum - limit(b) })) });
+    }
+  });
+  const allDt = dtS.flatMap(s => s.pts.map(p => p.v)), allH = hmS.flatMap(s => s.pts.map(p => p.v));
+  const dMax = Math.max(5, Math.ceil(Math.max(...allDt, 0))), hMin = Math.min(-1, Math.floor(Math.min(...allH, 0))), hMax = Math.max(1, Math.ceil(Math.max(...allH, 0)));
+  const legend = `<div class="legend">${bags.map(b => `<span><i style="background:${COLORS[db.bags.indexOf(b) % COLORS.length]}"></i>${esc(b.id)}</span>`).join("")}</div>`;
+  const rows = bags.map(b => { const e = evalBag(b); if (e.none) return ""; const c = e.cur.find(r => r.punto === "Centro"), x = e.cur.find(r => r.punto === "Extremo"); return `<tr><td>${esc(b.id)}</td><td>${n1(c?.temp)}</td><td>${n1(x?.temp)}</td><td>${e.diff == null ? "–" : sg(e.diff)}</td><td>${chip(e.lvl)}</td></tr>`; }).join("");
+  return `<h2>Gráficos</h2>${sel}
+  <div class="card"><h3 style="margin-top:0">Aumento de temperatura en el Centro (°C vs. primera medición)</h3>
+    ${lineChart(dtS, 0, dMax, [{ v: RULES.dtYellow, c: "#e8a93a", t: "atención" }, { v: RULES.dtRed, c: "#e0524a", t: "crítico" }], xl)}${legend}</div>
+  <div class="card"><h3 style="margin-top:0">Humedad en el Centro respecto del límite del cultivo (puntos porcentuales)</h3>
+    ${lineChart(hmS, hMin, hMax, [{ v: 0, c: "#e8a93a", t: "límite" }], xl)}${legend}</div>
+  <div class="card scroll"><h3 style="margin-top:0">Centro vs. Extremo (último control)</h3><table><thead><tr><th>Bolsa</th><th>Centro °C</th><th>Extremo °C</th><th>Diferencia</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="note">Diferencia de ${n1(RULES.sectorDiff)} °C o más entre Centro y Extremo se marca como atención (sector caliente).</p>`;
+}
+
+function vInspecciones() {
+  const pre = ui.prefill || db.bags[0]?.id;
+  const pe = ui.prefill ? evalBag(bagById(ui.prefill) || db.bags[0]) : null;
+  const motivo = pe && pe.lvl >= 1 ? pe.reasons.join(" · ") : "";
+  const list = db.inspections.slice().sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return `<h2>Inspecciones y acciones</h2>
+  <form data-form="insp" class="card">
+    <label>Silobolsa<select name="bag">${db.bags.map(b => `<option ${b.id === pre ? "selected" : ""}>${esc(b.id)}</option>`).join("")}</select></label>
+    <label>Fecha<input type="date" name="fecha" required value="${new Date().toISOString().slice(0, 10)}"></label>
+    <label>Responsable<input name="resp"></label>
+    <label class="full">Motivo<input name="motivo" value="${esc(motivo)}"></label>
+    <label class="full">Resultado observado<input name="resultado" required></label>
+    <label>Cubierta<select name="cubierta"><option>Buena</option><option>Regular</option><option>Con daños</option></select></label>
+    <label>Acción realizada<input name="accion"></label>
+    <label>Seguimiento (fecha)<input type="date" name="seg"></label>
+    <label>Estado<select name="estado"><option>pendiente</option><option>en proceso</option><option>finalizada</option></select></label>
+    <div class="full row"><button class="b p" type="submit">Registrar</button></div>
+  </form>
+  <div class="card scroll"><table><thead><tr><th>Fecha</th><th>Bolsa</th><th>Motivo</th><th>Resultado</th><th>Acción</th><th>Seg.</th><th>Estado</th></tr></thead><tbody>
+  ${list.map(i => `<tr><td>${fdate(i.fecha)}</td><td>${esc(i.bag)}</td><td>${esc(i.motivo)}</td><td>${esc(i.resultado)}</td><td>${esc(i.accion)}</td><td>${i.seg ? fdate(i.seg) : "–"}</td><td><select data-sel="inspEstado" data-id="${esc(i.id)}">${["pendiente", "en proceso", "finalizada"].map(s => `<option ${i.estado === s ? "selected" : ""}>${s}</option>`).join("")}</select></td></tr>`).join("") || `<tr><td colspan="7" class="empty">Sin inspecciones registradas.</td></tr>`}
+  </tbody></table></div>`;
+}
+
+/* ================= RENDER Y EVENTOS ================= */
+function render() {
+  $("#nav").innerHTML = TABS.map(([k, t]) => `<button data-tab="${k}" class="${ui.tab === k ? "on" : ""}">${t}</button>`).join("");
+  const v = { inicio: vInicio, bolsas: vBolsas, control: vControl, historial: vHistorial, graficos: vGraficos, alertas: vAlertas, inspecciones: vInspecciones }[ui.tab];
+  $("#app").innerHTML = v();
+}
+function go(tab) { ui.tab = tab; render(); window.scrollTo(0, 0); }
+
+document.addEventListener("click", ev => {
+  const t = ev.target.closest("[data-tab],[data-act]"); if (!t) return;
+  if (t.dataset.tab) { ui.result = null; if (t.dataset.tab !== "control" && t.dataset.tab !== "inspecciones") ui.prefill = null; return go(t.dataset.tab); }
+  const a = t.dataset.act, id = t.dataset.id, bag = t.dataset.bag;
+  if (a === "insp") { ui.prefill = bag; return go("inspecciones"); }
+  if (a === "hist") { ui.histBag = bag; return go("historial"); }
+  if (a === "edit") { ui.editId = id; return go("bolsas"); }
+  if (a === "cancel-edit") { ui.editId = null; return render(); }
+  if (a === "del") { ui.delId = id; return render(); }
+  if (a === "del-no") { ui.delId = null; return render(); }
+  if (a === "del-yes") { db.bags = db.bags.filter(b => b.id !== id); db.readings = db.readings.filter(r => r.bag !== id); db.inspections = db.inspections.filter(i => i.bag !== id); ui.delId = null; save(); return render(); }
+  if (a === "del-r") { db.readings = db.readings.filter(r => r.id !== id); save(); return render(); }
+  if (a === "reset") { ui.resetAsk = true; return render(); }
+  if (a === "reset-no") { ui.resetAsk = false; return render(); }
+  if (a === "reset-yes") { db = seed(); ui.resetAsk = false; ui.editId = null; save(); return render(); }
+});
+document.addEventListener("change", ev => {
+  const s = ev.target.dataset && ev.target.dataset.sel; if (!s) return;
+  if (s === "histBag" || s === "grafBag") { ui[s] = ev.target.value; return render(); }
+  if (s === "inspEstado") { const i = db.inspections.find(x => x.id === ev.target.dataset.id); if (i) { i.estado = ev.target.value; save(); } }
+});
+document.addEventListener("submit", ev => {
+  const f = ev.target.dataset && ev.target.dataset.form; if (!f) return;
+  ev.preventDefault();
+  const d = Object.fromEntries(new FormData(ev.target).entries());
+  if (f === "bag") {
+    const hum0 = num(d.hum0); if (isNaN(hum0)) return alert("Humedad inicial inválida");
+    const id = d.id.trim().toUpperCase();
+    if (!ui.editId && bagById(id)) return alert("Ya existe una silobolsa con ese código");
+    const rec = { id, cultivo: d.cultivo, lote: d.lote.trim(), estab: d.estab.trim(), campana: d.campana.trim(), embolsado: d.embolsado, hum0, temp0: isNaN(num(d.temp0)) ? null : num(d.temp0), tn: d.tn.trim(), cubierta: d.cubierta, resp: d.resp.trim(), obs: d.obs.trim() };
+    if (ui.editId) db.bags[db.bags.findIndex(b => b.id === ui.editId)] = rec; else db.bags.push(rec);
+    ui.editId = null; save(); return render();
+  }
+  if (f === "control") {
+    const temp = num(d.temp), hum = num(d.hum); if (isNaN(temp) || isNaN(hum)) return alert("Temperatura y humedad deben ser números");
+    const r = { id: "r" + Date.now(), bag: d.bag, punto: d.punto, dt: d.dt, temp, hum, amb: isNaN(num(d.amb)) ? null : num(d.amb), cubierta: d.cubierta, perf: d.perf === "1", resp: d.resp.trim(), obs: d.obs.trim() };
+    db.readings.push(r); save(); ui.prefill = d.bag;
+    ui.result = { bag: d.bag, e: evalBag(bagById(d.bag)) }; return render();
+  }
+  if (f === "insp") {
+    db.inspections.push({ id: "i" + Date.now(), bag: d.bag, fecha: d.fecha, resp: d.resp.trim(), motivo: d.motivo.trim(), resultado: d.resultado.trim(), cubierta: d.cubierta, accion: d.accion.trim(), seg: d.seg, estado: d.estado });
+    ui.prefill = null; save(); return render();
+  }
+});
+render();
+</script>
+</body>
+</html>
